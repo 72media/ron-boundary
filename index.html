@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เทศบาลร่อนพิบูลย์ Map - Draggable Markers and Editable Boundary</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        #map {
+            width: 100%;
+            height: 80vh; /* Reduced height for coordinate panel */
+        }
+        #coords-panel {
+            height: 20vh;
+            overflow-y: auto;
+            padding: 10px;
+            background: #fff;
+            border-top: 1px solid #ccc;
+            font-family: Arial, sans-serif;
+        }
+        #coords-panel h3 {
+            margin: 0 0 10px;
+        }
+        #coords-panel ul {
+            list-style: none;
+            padding: 0;
+        }
+        #coords-panel li {
+            margin-bottom: 5px;
+        }
+        #export-btn {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="coords-panel">
+        <h3>พิกัดหมุดและเส้นขอบเขต(ปรับปรุงเมื่อลาก)</h3>
+        <ul id="coords-list"></ul>
+        <button id="export-btn">Export GeoJSON</button>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([8.166, 99.84], 13);
+
+        // Define multiple basemaps
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+        const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a>'
+        });
+        const stamenTerrain = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+            attribution: '© <a href="http://maps.stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>'
+        });
+        const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© <a href="https://www.esri.com/">Esri</a>, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+        const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://carto.com/attributions">CARTO</a>'
+        });
+        const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://carto.com/attributions">CARTO</a>'
+        });
+
+        // Add default basemap (OSM HOT for better river/canal visibility) to the map
+        osmHot.addTo(map);
+
+        // Add layer control for switching basemaps
+        const baseMaps = {
+            "OpenStreetMap": osm,
+            "Esri Satellite": esriSatellite,
+            "CartoDB Dark Matter": cartoDark
+        };
+        L.control.layers(baseMaps).addTo(map);
+
+        // Define custom icon for markers
+        const customIcon = L.icon({
+            iconUrl: 'http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png',
+            iconSize: [38, 38], // Size of the icon
+            iconAnchor: [19, 38], // Point of the icon which will correspond to marker's location
+            popupAnchor: [0, -38] // Point from which the popup should open relative to the iconAnchor
+        });
+
+        // GeoJSON data from the provided file
+        const geojsonData = {
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "id": 4161220677, "geometry": {"type": "Point", "coordinates": [99.846293, 8.184945]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่1", "group": 1514405398}},
+                {"type": "Feature", "id": 614592943, "geometry": {"type": "Point", "coordinates": [99.84851, 8.186351]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่2", "group": 1514405398}},
+                {"type": "Feature", "id": 4113135821, "geometry": {"type": "Point", "coordinates": [99.858847, 8.18922]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่3", "group": 1514405398}},
+                {"type": "Feature", "id": 1542260246, "geometry": {"type": "Point", "coordinates": [99.864337, 8.186976]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่4", "group": 1514405398}},
+                {"type": "Feature", "id": 1296795022, "geometry": {"type": "Point", "coordinates": [99.806629, 8.137866]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่5", "group": 1514405398}},
+                {"type": "Feature", "id": 285021613, "geometry": {"type": "Point", "coordinates": [99.805653, 8.150191]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่6", "group": 1514405398}},
+                {"type": "Feature", "id": 3649619791, "geometry": {"type": "Point", "coordinates": [99.834368, 8.15869]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่7", "group": 1514405398}},
+                {"type": "Feature", "id": 479623526, "geometry": {"type": "Point", "coordinates": [99.838031, 8.16375]}, "properties": {"marker_id": "adhmptzdenrppbbv", "title": "หลักเขตที่8", "group": 1514405398}},
+                {"type": "Feature", "id": 1912778488, "geometry": {"type": "LineString", "coordinates": [[99.845435, 8.184383], [99.846048, 8.18538], [99.846661, 8.186022], [99.848433, 8.186415], [99.858227, 8.1894], [99.863862, 8.187045], [99.854883, 8.158998], [99.85353, 8.15589], [99.851326, 8.153667], [99.849228, 8.152156], [99.845153, 8.150199], [99.839405, 8.147851], [99.832913, 8.145498], [99.826533, 8.143021], [99.82193, 8.141595], [99.813116, 8.139314], [99.805871, 8.137786], [99.805201, 8.150268], [99.817739, 8.153715], [99.834073, 8.158875], [99.832965, 8.160459], [99.833186, 8.161953], [99.837557, 8.163884], [99.845435, 8.184383]]}, "properties": {"stroke-width": 1.5, "stroke": "#ff0000", "title": "พื้นที่เทศบาล", "group": 1514405398}}
+            ],
+            "groups": [{"title": "หมุดเทศบาลร่อนพิบูลย์", "id": 1514405398}],
+            "markers": [{"id": "adhmptzdenrppbbv"}],
+            "properties": {}
+        };
+
+        // Store updated coordinates for markers and LineString
+        const updatedCoordinates = {
+            markers: {},
+            linestring: []
+        };
+
+        // Create a feature group for editable layers
+        const drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        // Initialize Leaflet.Draw for editing (no drawing controls, only editing)
+        const drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems,
+                remove: false // Disable deletion
+            },
+            draw: false // Disable drawing new shapes
+        });
+        map.addControl(drawControl);
+
+        // Add GeoJSON layer to the map
+        L.geoJSON(geojsonData, {
+            style: function(feature) {
+                if (feature.geometry.type === "LineString") {
+                    return {
+                        color: feature.properties.stroke,
+                        weight: feature.properties['stroke-width']
+                    };
+                }
+            },
+            pointToLayer: function(feature, latlng) {
+                // Use custom icon and make markers draggable
+                return L.marker(latlng, { 
+                    icon: customIcon,
+                    draggable: true 
+                });
+            },
+            onEachFeature: function(feature, layer) {
+                if (feature.properties && feature.properties.title) {
+                    layer.bindPopup(feature.properties.title);
+                    if (feature.geometry.type === "Point") {
+                        // Initialize marker coordinates
+                        updatedCoordinates.markers[feature.properties.title] = feature.geometry.coordinates;
+                        updateCoordsPanel();
+                        
+                        // Update marker coordinates when dragged
+                        layer.on('dragend', function(e) {
+                            const newLatLng = e.target.getLatLng();
+                            updatedCoordinates.markers[feature.properties.title] = [newLatLng.lng, newLatLng.lat];
+                            updateCoordsPanel();
+                        });
+                    } else if (feature.geometry.type === "LineString") {
+                        // Add LineString to editable feature group
+                        drawnItems.addLayer(layer);
+                        // Initialize LineString coordinates
+                        updatedCoordinates.linestring = feature.geometry.coordinates;
+                        updateCoordsPanel();
+                        // Update LineString coordinates when edited
+                        layer.on('edit', function(e) {
+                            updatedCoordinates.linestring = e.target.getLatLngs().map(latlng => [latlng.lng, latlng.lat]);
+                            updateCoordsPanel();
+                        });
+                    }
+                }
+            }
+        }).addTo(map);
+
+        // Function to update the coordinates panel
+        function updateCoordsPanel() {
+            const coordsList = document.getElementById('coords-list');
+            coordsList.innerHTML = '';
+            // Add marker coordinates
+            for (const [title, coords] of Object.entries(updatedCoordinates.markers)) {
+                const li = document.createElement('li');
+                li.textContent = `${title}: [${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}]`;
+                coordsList.appendChild(li);
+            }
+            // Add LineString coordinates
+            const li = document.createElement('li');
+            li.textContent = `พื้นที่เทศบาล (LineString):`;
+            coordsList.appendChild(li);
+            updatedCoordinates.linestring.forEach((coords, index) => {
+                const subLi = document.createElement('li');
+                subLi.textContent = `Vertex ${index + 1}: [${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}]`;
+                subLi.style.marginLeft = '20px';
+                coordsList.appendChild(subLi);
+            });
+        }
+
+        // Export updated GeoJSON
+        document.getElementById('export-btn').addEventListener('click', function() {
+            const updatedGeoJSON = JSON.parse(JSON.stringify(geojsonData));
+            updatedGeoJSON.features.forEach(feature => {
+                if (feature.geometry.type === "Point" && updatedCoordinates.markers[feature.properties.title]) {
+                    feature.geometry.coordinates = updatedCoordinates.markers[feature.properties.title];
+                } else if (feature.geometry.type === "LineString") {
+                    feature.geometry.coordinates = updatedCoordinates.linestring;
+                }
+            });
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(updatedGeoJSON, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "updated_ramrome-hmudethsbaalr-nphibuuly.geojson");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            document.body.removeChild(downloadAnchor);
+        });
+
+        // Fit the map to the bounds of the GeoJSON features
+        const geojsonLayer = L.geoJSON(geojsonData);
+        map.fitBounds(geojsonLayer.getBounds());
+    </script>
+</body>
+</html>
