@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เทศบาลร่อนพิบูลย์ Map Draggable Markers and Editable Boundary</title>
+    <title>เทศบาลตำบลร่อนพิบูลย์ Map Draggable Markers and Editable Boundary</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <style>
@@ -14,18 +14,22 @@
         }
         #map {
             width: 100%;
-            height: 80vh; /* Reduced height for coordinate panel */
+            height: 70vh; /* Reduced height for panels */
         }
-        #coords-panel {
-            height: 20vh;
+        #coords-panel, #info-panel {
+            height: 15vh;
             overflow-y: auto;
             padding: 10px;
             background: #fff;
             border-top: 1px solid #ccc;
             font-family: Arial, sans-serif;
         }
-        #coords-panel h3 {
+        #info-panel {
+            border-top: none;
+        }
+        #coords-panel h3, #info-panel h3 {
             margin: 0 0 10px;
+            cursor: pointer;
         }
         #coords-panel ul {
             list-style: none;
@@ -39,14 +43,58 @@
             padding: 5px 10px;
             cursor: pointer;
         }
+        #info-content, #coords-content {
+            display: none;
+        }
+        #info-content.active, #coords-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div id="coords-panel">
-        <h3>พิกัดหมุดและเส้นขอบเขต(ปรับปรุงเมื่อลาก)</h3>
-        <ul id="coords-list"></ul>
-        <button id="export-btn">Export GeoJSON</button>
+        <h3 onclick="togglePanel('coords-content')">พิกัดหมุดและเส้นขอบเขต (ปรับปรุงเมื่อลาก)</h3>
+        <div id="coords-content" class="active">
+            <ul id="coords-list"></ul>
+            <button id="export-btn">Export GeoJSON</button>
+        </div>
+    </div>
+    <div id="info-panel">
+        <h3 onclick="togglePanel('info-content')">ข้อมูลเทศบาลตำบลร่อนพิบูลย์</h3>
+        <div id="info-content">
+            <h4>สภาพทั่วไป</h4>
+            <p>เทศบาลตำบลร่อนพิบูลย์มีอาณาเขตครอบคลุมพื้นที่บางส่วนของตำบลร่อนพิบูลย์ ประกอบด้วย 9 หมู่บ้าน ได้แก่</p>
+            <ul>
+                <li>หมู่ที่ 1 บ้านหูด่าน</li>
+                <li>หมู่ที่ 5 บ้านห้วยรากไม้</li>
+                <li>หมู่ที่ 6 บ้านตอนกลาง</li>
+                <li>หมู่ที่ 7 บ้านวังไทร</li>
+                <li>หมู่ที่ 10 บ้านโคกยาง</li>
+                <li>หมู่ที่ 12 บ้านตลาดร่อนพิบูลย์</li>
+                <li>หมู่ที่ 13 บ้านศาลาขี้เหล็ก</li>
+                <li>หมู่ที่ 14 บ้านนาโพธิ์</li>
+                <li>หมู่ที่ 15 บ้านทุ่งน้ำจาน</li>
+            </ul>
+            <h4>อาณาเขตของเทศบาลตำบลร่อนพิบูลย์</h4>
+            <p><strong>ทิศเหนือ</strong>: ตั้งแต่หลักเขตที่ 1 ซึ่งตั้งอยู่ริมถนนตลาดเก่า (ฟากเหนือ ตรงฟาก ตลาดใหม่ฟากตะวันตก เส้นเขตเลียบริมถนนตลาดใหม่ฟากตะวันตกไปทางทิศตะวันออกเฉียงเหนือ) ถึงหลักเขตที่ 2 (ซึ่งอยู่ห่างจากเขตที่ 1 ระยะทาง 100 เมตร) จากหลักเขตที่ 2 เป็นเส้นตรงไปทางทิศตะวันออกเฉียงเหนือถึงหลักเขตที่ 3 ซึ่งตั้งอยู่ริมทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง ฟากตะวันตก กิโลเมตรที่ 95 จากหลักเขตที่ 3 เป็นเส้นตรงไปทางทิศตะวันออก ถึงหลักเขตที่ 4 ซึ่งอยู่ห่างจากศูนย์กลางทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง ตามแนวเส้นตั้งฉาก 650 เมตร</p>
+            <p><strong>ทิศตะวันออกและทิศใต้</strong>: จากหลักเขตที่ 4 เป็นเส้นขนานกับทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสงไปทางทิศตะวันตกเฉียงใต้ถึงหลักเขตที่ 5 ซึ่งตั้งอยู่ห่างจากศูนย์กลางทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง กิโลเมตรที่ 15 ตามแนวเส้นตั้งฉาก 650 เมตร</p>
+            <p><strong>ทิศตะวันตก</strong>: จากหลักเขตที่ 5 เป็นเส้นตรงไปทางทิศเหนือผ่านทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง กิโลเมตรที่ 15 ถึงหลักเขตที่ 6 ซึ่งตั้งอยู่ห่างจากศูนย์กลางทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง 650 เมตร จากหลักเขตที่ 6 เป็นเส้นขนานกับทางหลวงแผ่นดินสายร่อนพิบูลย์ - ไปทางทิศตะวันออกเฉียงเหนือถึงหลักเขตที่ 7 ซึ่งตั้งอยู่ริมถนนโครงการฟากตะวันตก ห่างจากทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง ตามแนวเส้นตั้งฉาก 650 เมตร จากหลักเขตที่ 7 เลียบริมถนนโครงการฟากตะวันตก ไปทางทิศเหนือถึงหลักเขตที่ 8 ซึ่งตั้งอยู่ห่างจากหลักเขตที่ 7 ตามแนวถนน 800 เมตร</p>
+            <h4>ชุมชนในเทศบาล</h4>
+            <p>เทศบาลตำบลร่อนพิบูลย์ ประกอบด้วยชุมชน จำนวน 10 ชุมชน ได้แก่</p>
+            <ol>
+                <li>ชุมชนตลาดเกษตร</li>
+                <li>ชุมชนบ้านป่าชมพู่</li>
+                <li>ชุมชนบ้านวังไทร</li>
+                <li>ชุมชนบ้านตลาดใหม่</li>
+                <li>ชุมชนสุวรรณรังษี - โคกยาง</li>
+                <li>ชุมชนบ้านเขาน้อย</li>
+                <li>ชุมชนวัดเทพนมเชือด</li>
+                <li>ชุมชนบ้านปรีชาทอง - นาลีก</li>
+                <li>ชุมชนบ้านตลาดใน - จานเรียว</li>
+                <li>ชุมชนตลาดร่อนพิบูลย์</li>
+            </ol>
+        </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
@@ -219,6 +267,12 @@
             downloadAnchor.click();
             document.body.removeChild(downloadAnchor);
         });
+
+        // Toggle panel visibility
+        function togglePanel(panelId) {
+            const panel = document.getElementById(panelId);
+            panel.classList.toggle('active');
+        }
 
         // Fit the map to the bounds of the GeoJSON features
         const geojsonLayer = L.geoJSON(geojsonData);
