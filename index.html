@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เทศบาลตำบลร่อนพิบูลย์ Map Draggable Markers and Editable Boundary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>เทศบาลตำบลร่อนพิบูลย์ - UTM Grid, DMS และ MGRS (Dark Theme)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <style>
@@ -11,37 +11,58 @@
             margin: 0;
             padding: 0;
             height: 100%;
+            font-family: 'Sarabun', 'Arial', sans-serif;
         }
         #map {
             width: 100%;
-            height: 100vh; /* Reduced height for panels */
+            height: 68vh;
+            border-bottom: 2px solid #333;
         }
         #coords-panel, #info-panel {
-            height: 15vh;
+            max-height: 32vh;
             overflow-y: auto;
-            padding: 10px;
-            background: #fff;
-            border-top: 1px solid #ccc;
-            font-family: Arial, sans-serif;
+            padding: 10px 16px;
+            background: #1e1e1e;
+            border-top: 1px solid #444;
+            font-size: 13px;
+            color: #e0e0e0;
         }
         #info-panel {
-            border-top: none;
+            background: #252525;
         }
-        #coords-panel h3, #info-panel h3 {
-            margin: 0 0 10px;
+        h3 {
+            margin: 0 0 8px;
             cursor: pointer;
+            color: #7bc5e8;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         #coords-panel ul {
             list-style: none;
-            padding: 0;
+            padding-left: 0;
         }
         #coords-panel li {
             margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            word-break: break-word;
+            color: #ddd;
         }
         #export-btn {
-            margin-top: 10px;
-            padding: 5px 10px;
+            margin-top: 12px;
+            padding: 6px 14px;
+            background-color: #2c7da0;
+            color: white;
+            border: none;
+            border-radius: 6px;
             cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        #export-btn:hover {
+            background-color: #1f5e7a;
         }
         #info-content, #coords-content {
             display: none;
@@ -49,99 +70,283 @@
         #info-content.active, #coords-content.active {
             display: block;
         }
+        
+        /* Dark Theme Popup */
+        .leaflet-popup-content-wrapper {
+            background: #0a0c10;
+            color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.6);
+            border-left: 3px solid #2c7da0;
+        }
+        .leaflet-popup-tip {
+            background: #0a0c10;
+        }
+        .leaflet-popup-content {
+            margin: 12px 16px;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .coord-block {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin: 10px 0;
+            border-left: 4px solid #4a9eff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            color: #f0f0f0;
+        }
+        .coord-title {
+            font-weight: bold;
+            color: #ffd966;
+            margin-bottom: 6px;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        .badge-datum {
+            background: #2c7da0;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            display: inline-block;
+            margin-left: 6px;
+        }
+        .mgrs-code, .dms-code, .coord-value {
+            font-family: 'Courier New', monospace;
+            background: #2a2a2a;
+            color: #cfecf0;
+            padding: 3px 8px;
+            border-radius: 8px;
+            letter-spacing: 0.3px;
+            font-weight: 500;
+            display: inline-block;
+        }
+        .popup-note {
+            font-size: 10px;
+            color: #aaa;
+            text-align: center;
+            margin-top: 8px;
+            border-top: 1px solid #333;
+            padding-top: 6px;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div id="coords-panel">
-        <h3 onclick="togglePanel('coords-content')">พิกัดหมุดและเส้นขอบเขต (ปรับปรุงเมื่อลาก)</h3>
+        <h3 onclick="togglePanel('coords-content')">📍 พิกัดหมุดและเส้นขอบเขต (อัปเดตเมื่อลาก)</h3>
         <div id="coords-content" class="active">
             <ul id="coords-list"></ul>
-            <button id="export-btn">Export GeoJSON</button>
+            <button id="export-btn">📥 ส่งออก GeoJSON (อัปเดตพิกัดล่าสุด)</button>
         </div>
     </div>
     <div id="info-panel">
-        <h3 onclick="togglePanel('info-content')">ข้อมูลเทศบาลตำบลร่อนพิบูลย์</h3>
+        <h3 onclick="togglePanel('info-content')">📋 ข้อมูลเทศบาลตำบลร่อนพิบูลย์</h3>
         <div id="info-content">
-            <h4>สภาพทั่วไป</h4>
-            <p>เทศบาลตำบลร่อนพิบูลย์มีอาณาเขตครอบคลุมพื้นที่บางส่วนของตำบลร่อนพิบูลย์ ประกอบด้วย 9 หมู่บ้าน ได้แก่</p>
-            <ul>
-                <li>หมู่ที่ 1 บ้านหูด่าน</li>
-                <li>หมู่ที่ 5 บ้านห้วยรากไม้</li>
-                <li>หมู่ที่ 6 บ้านตอนกลาง</li>
-                <li>หมู่ที่ 7 บ้านวังไทร</li>
-                <li>หมู่ที่ 10 บ้านโคกยาง</li>
-                <li>หมู่ที่ 12 บ้านตลาดร่อนพิบูลย์</li>
-                <li>หมู่ที่ 13 บ้านศาลาขี้เหล็ก</li>
-                <li>หมู่ที่ 14 บ้านนาโพธิ์</li>
-                <li>หมู่ที่ 15 บ้านทุ่งน้ำจาน</li>
-            </ul>
-            <h4>อาณาเขตของเทศบาลตำบลร่อนพิบูลย์</h4>
-            <p><strong>ทิศเหนือ</strong>: ตั้งแต่หลักเขตที่ 1 ซึ่งตั้งอยู่ริมถนนตลาดเก่า (ฟากเหนือ ตรงฟาก ตลาดใหม่ฟากตะวันตก เส้นเขตเลียบริมถนนตลาดใหม่ฟากตะวันตกไปทางทิศตะวันออกเฉียงเหนือ) ถึงหลักเขตที่ 2 (ซึ่งอยู่ห่างจากเขตที่ 1 ระยะทาง 100 เมตร) จากหลักเขตที่ 2 เป็นเส้นตรงไปทางทิศตะวันออกเฉียงเหนือถึงหลักเขตที่ 3 ซึ่งตั้งอยู่ริมทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง ฟากตะวันตก กิโลเมตรที่ 95 จากหลักเขตที่ 3 เป็นเส้นตรงไปทางทิศตะวันออก ถึงหลักเขตที่ 4 ซึ่งอยู่ห่างจากศูนย์กลางทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง ตามแนวเส้นตั้งฉาก 650 เมตร</p>
-            <p><strong>ทิศตะวันออกและทิศใต้</strong>: จากหลักเขตที่ 4 เป็นเส้นขนานกับทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสงไปทางทิศตะวันตกเฉียงใต้ถึงหลักเขตที่ 5 ซึ่งตั้งอยู่ห่างจากศูนย์กลางทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง กิโลเมตรที่ 15 ตามแนวเส้นตั้งฉาก 650 เมตร</p>
-            <p><strong>ทิศตะวันตก</strong>: จากหลักเขตที่ 5 เป็นเส้นตรงไปทางทิศเหนือผ่านทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง กิโลเมตรที่ 15 ถึงหลักเขตที่ 6 ซึ่งตั้งอยู่ห่างจากศูนย์กลางทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง 650 เมตร จากหลักเขตที่ 6 เป็นเส้นขนานกับทางหลวงแผ่นดินสายร่อนพิบูลย์ - ไปทางทิศตะวันออกเฉียงเหนือถึงหลักเขตที่ 7 ซึ่งตั้งอยู่ริมถนนโครงการฟากตะวันตก ห่างจากทางหลวงแผ่นดิน สายร่อนพิบูลย์ - ทุ่งสง ตามแนวเส้นตั้งฉาก 650 เมตร จากหลักเขตที่ 7 เลียบริมถนนโครงการฟากตะวันตก ไปทางทิศเหนือถึงหลักเขตที่ 8 ซึ่งตั้งอยู่ห่างจากหลักเขตที่ 7 ตามแนวถนน 800 เมตร</p>
-            <h4>ชุมชนในเทศบาล</h4>
-            <p>เทศบาลตำบลร่อนพิบูลย์ ประกอบด้วยชุมชน จำนวน 10 ชุมชน ได้แก่</p>
-            <ol>
-                <li>ชุมชนตลาดเกษตร</li>
-                <li>ชุมชนบ้านป่าชมพู่</li>
-                <li>ชุมชนบ้านวังไทร</li>
-                <li>ชุมชนบ้านตลาดใหม่</li>
-                <li>ชุมชนสุวรรณรังษี - โคกยาง</li>
-                <li>ชุมชนบ้านเขาน้อย</li>
-                <li>ชุมชนวัดเทพนมเชือด</li>
-                <li>ชุมชนบ้านปรีชาทอง - นาลีก</li>
-                <li>ชุมชนบ้านตลาดใน - จานเรียว</li>
-                <li>ชุมชนตลาดร่อนพิบูลย์</li>
-            </ol>
+            <h4 style="color:#ffd966;">สภาพทั่วไป</h4>
+            <p>เทศบาลตำบลร่อนพิบูลย์ครอบคลุม 9 หมู่บ้าน 10 ชุมชน อาณาเขตตามหลักเขตที่ 1–8</p>
+            <h4 style="color:#ffd966;">ชุมชนในเทศบาล</h4>
+            <ol><li>ตลาดเกษตร</li><li>บ้านป่าชมพู่</li><li>บ้านวังไทร</li><li>บ้านตลาดใหม่</li><li>สุวรรณรังษี - โคกยาง</li><li>บ้านเขาน้อย</li><li>วัดเทพนมเชือด</li><li>บ้านปรีชาทอง - นาลีก</li><li>บ้านตลาดใน - จานเรียว</li><li>ตลาดร่อนพิบูลย์</li></ol>
+            <p><strong>ทิศเหนือ:</strong> หลักเขตที่ 1–4 &nbsp;| <strong>ตะวันออก/ใต้:</strong> หลักเขตที่ 4–5 &nbsp;| <strong>ตะวันตก:</strong> หลักเขตที่ 5–8</p>
         </div>
     </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/mgrs@1.0.0/mgrs.js"></script>
+    
     <script>
-        // Initialize the map
-        const map = L.map('map').setView([8.166, 99.84], 13);
-
-        // Define multiple basemaps
+        // --------------------------------------------------------------
+        // DMS (องศา ลิปดา ฟิลิปดา)
+        // --------------------------------------------------------------
+        function decimalToDMS(value, isLat) {
+            const absolute = Math.abs(value);
+            const degrees = Math.floor(absolute);
+            const minutesFull = (absolute - degrees) * 60;
+            const minutes = Math.floor(minutesFull);
+            const seconds = (minutesFull - minutes) * 60;
+            const secRounded = seconds.toFixed(2);
+            const direction = isLat ? (value >= 0 ? 'N' : 'S') : (value >= 0 ? 'E' : 'W');
+            return `${degrees}° ${minutes}' ${secRounded}" ${direction}`;
+        }
+        
+        function getDMSString(lat, lon) {
+            const latDMS = decimalToDMS(lat, true);
+            const lonDMS = decimalToDMS(lon, false);
+            return `${latDMS}, ${lonDMS}`;
+        }
+        
+        // --------------------------------------------------------------
+        // UTM WGS84
+        // --------------------------------------------------------------
+        function degToRad(deg) { return deg * Math.PI / 180; }
+        
+        function computeUTM_WGS84(lat, lon) {
+            const a = 6378137.0;
+            const f = 1 / 298.257223563;
+            const k0 = 0.9996;
+            const e = Math.sqrt(2 * f - f * f);
+            const e2 = e * e;
+            
+            const latRad = degToRad(lat);
+            const lonRad = degToRad(lon);
+            
+            let zone = Math.floor((lon + 180) / 6) + 1;
+            const hemisphere = lat >= 0 ? 'N' : 'S';
+            const lon0 = degToRad((zone - 1) * 6 - 180 + 3);
+            
+            const n = f / (2 - f);
+            const n2 = n * n;
+            const n3 = n2 * n;
+            const n4 = n3 * n;
+            const A = a / (1 + n) * (1 + n2/4 + n4/64);
+            const alpha1 = (1/2)*n - (2/3)*n2 + (5/16)*n3 + (41/180)*n4;
+            const alpha2 = (13/48)*n2 - (3/5)*n3 + (557/1440)*n4;
+            const alpha3 = (61/240)*n3 - (103/140)*n4;
+            const alpha4 = (49561/161280)*n4;
+            
+            const S = A * (latRad 
+                + alpha1 * Math.sin(2*latRad)
+                + alpha2 * Math.sin(4*latRad)
+                + alpha3 * Math.sin(6*latRad)
+                + alpha4 * Math.sin(8*latRad));
+            
+            const sinPhi = Math.sin(latRad);
+            const cosPhi = Math.cos(latRad);
+            const tanPhi = Math.tan(latRad);
+            const nu = a / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+            const rho = a * (1 - e2) / Math.pow(1 - e2 * sinPhi * sinPhi, 1.5);
+            const eta2 = nu / rho - 1;
+            const deltaLon = lonRad - lon0;
+            const T = tanPhi * tanPhi;
+            const C = e2 * cosPhi * cosPhi / (1 - e2);
+            const A_ = deltaLon * cosPhi;
+            
+            let easting = k0 * nu * (A_ 
+                + (1 - T + C) * Math.pow(A_, 3)/6 
+                + (5 - 18*T + T*T + 72*C - 58*eta2) * Math.pow(A_, 5)/120);
+            easting += 500000.0;
+            
+            let northing = k0 * (S + nu * tanPhi * (
+                Math.pow(A_, 2)/2 
+                + (5 - T + 9*C + 4*C*C) * Math.pow(A_, 4)/24
+                + (61 - 58*T + T*T + 600*C - 330*eta2) * Math.pow(A_, 6)/720));
+            
+            if (!(lat >= 0)) {
+                northing += 10000000.0;
+            }
+            
+            return {
+                zone: zone,
+                hemisphere: hemisphere,
+                easting: Math.round(easting * 100) / 100,
+                northing: Math.round(northing * 100) / 100
+            };
+        }
+        
+        // --------------------------------------------------------------
+        // MGRS (เงียบถ้าไม่โหลด)
+        // --------------------------------------------------------------
+        function latLonToMGRS(lat, lon) {
+            try {
+                if (typeof mgrs !== 'undefined' && mgrs.forward && typeof mgrs.forward === 'function') {
+                    const mgrsString = mgrs.forward([lon, lat]);
+                    if (mgrsString && mgrsString.length > 0) return mgrsString;
+                }
+                if (window.mgrs && window.mgrs.forward) {
+                    return window.mgrs.forward([lon, lat]);
+                }
+            } catch(e) {}
+            return null;
+        }
+        
+        // --------------------------------------------------------------
+        // Popup Dark Theme : แสดงละติจูด/ลองจิจูด เป็นบรรทัดเดียว (lat, lon)
+        // ตามที่ขอ: แทนที่แยกบรรทัดเป็น "ละติจูด: , ลองจิจูด:" ให้เหลือเป็นค่าคู่กัน
+        // --------------------------------------------------------------
+        function getDetailedPopupContent(markerLayer, title) {
+            const latlng = markerLayer.getLatLng();
+            const lat = latlng.lat;
+            const lng = latlng.lng;
+            
+            // UTM
+            const utm = computeUTM_WGS84(lat, lng);
+            const utmGridText = `${utm.zone}${utm.hemisphere}  East: ${utm.easting.toFixed(2)} m  North: ${utm.northing.toFixed(2)} m`;
+            
+            // DMS
+            const dmsString = getDMSString(lat, lng);
+            
+            // ค่าพิกัดในรูปแบบ "ละติจูด, ลองจิจูด" (ทศนิยม 7 ตำแหน่ง)
+            const decimalCoord = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+            
+            // MGRS (ถ้ามี)
+            let mgrsBlock = '';
+            const mgrsStr = latLonToMGRS(lat, lng);
+            if (mgrsStr && mgrsStr !== null) {
+                mgrsBlock = `
+                    <div class="coord-block">
+                        <div class="coord-title">🎖️ MGRS <span class="badge-datum">Military Grid</span></div>
+                        <div><span class="mgrs-code">${mgrsStr}</span></div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div style="min-width:260px;">
+                    <strong style="font-size:1rem; display:block; margin-bottom:6px;">📍 ${title}</strong>
+                    <div class="coord-block">
+                        <div class="coord-title">🗺️ ละติจูด / ลองจิจูด (WGS84)</div>
+                        <div><span class="coord-value">${decimalCoord}</span></div>
+                    </div>
+                    <div class="coord-block">
+                        <div class="coord-title">🧭 องศา ลิปดา ฟิลิปดา <span class="badge-datum">DMS</span></div>
+                        <div><span class="dms-code">${dmsString}</span></div>
+                    </div>
+                    <div class="coord-block">
+                        <div class="coord-title">🌐 UTM Grid <span class="badge-datum">WGS84</span></div>
+                        <div>${utmGridText}</div>
+                    </div>
+                    ${mgrsBlock}
+                    <div class="popup-note">✨ ลากหมุดเพื่อเปลี่ยนตำแหน่ง (อัปเดตพิกัดอัตโนมัติ)</div>
+                </div>
+            `;
+        }
+        
+        // --------------------------------------------------------------
+        // แผนที่และ Google Hybrid
+        // --------------------------------------------------------------
+        const map = L.map('map').setView([8.166, 99.84], 14);
+        
+        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            attribution: '&copy; <a href="https://maps.google.com">Google Maps</a> (Hybrid)',
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+        
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '© OpenStreetMap'
         });
         const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a>'
-        });
-        const stamenTerrain = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
-            attribution: '© <a href="http://maps.stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>'
+            attribution: '© HOT, OSM'
         });
         const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '© <a href="https://www.esri.com/">Esri</a>, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: '© Esri, Maxar'
         });
-        const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://carto.com/attributions">CARTO</a>'
-        });
-        const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://carto.com/attributions">CARTO</a>'
-        });
-
-        // Add default basemap (OSM HOT for better river/canal visibility) to the map
-        osmHot.addTo(map);
-
-        // Add layer control for switching basemaps
+        
+        googleHybrid.addTo(map);
+        
         const baseMaps = {
-            "OpenStreetMap": osm,
-            "Esri Satellite": esriSatellite,
-            "CartoDB Dark Matter": cartoDark
+            "🌍 Google Hybrid (ดาวเทียม+ถนน)": googleHybrid,
+            "🗺️ OpenStreetMap": osm,
+            "🔥 OSM Hot": osmHot,
+            "🛰️ Esri Satellite": esriSatellite
         };
         L.control.layers(baseMaps).addTo(map);
-
-        // Define custom icon for markers
-        const customIcon = L.icon({
-            iconUrl: 'http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png',
-            iconSize: [38, 38], // Size of the icon
-            iconAnchor: [19, 38], // Point of the icon which will correspond to marker's location
-            popupAnchor: [0, -38] // Point from which the popup should open relative to the iconAnchor
-        });
-
-        // GeoJSON data from the provided file
+        
+        // --------------------------------------------------------------
+        // GeoJSON ข้อมูลหลักเขต
+        // --------------------------------------------------------------
         const geojsonData = {
             "type": "FeatureCollection",
             "features": [
@@ -159,124 +364,143 @@
             "markers": [{"id": "adhmptzdenrppbbv"}],
             "properties": {}
         };
-
-        // Store updated coordinates for markers and LineString
+        
+        // เก็บสถานะพิกัดอัปเดต
         const updatedCoordinates = {
             markers: {},
             linestring: []
         };
-
-        // Create a feature group for editable layers
+        
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
-
-        // Initialize Leaflet.Draw for editing (no drawing controls, only editing)
+        
         const drawControl = new L.Control.Draw({
-            edit: {
-                featureGroup: drawnItems,
-                remove: false // Disable deletion
-            },
-            draw: false // Disable drawing new shapes
+            edit: { featureGroup: drawnItems, remove: false },
+            draw: false
         });
         map.addControl(drawControl);
-
-        // Add GeoJSON layer to the map
-        L.geoJSON(geojsonData, {
-            style: function(feature) {
-                if (feature.geometry.type === "LineString") {
-                    return {
-                        color: feature.properties.stroke,
-                        weight: feature.properties['stroke-width']
-                    };
-                }
-            },
-            pointToLayer: function(feature, latlng) {
-                // Use custom icon and make markers draggable
-                return L.marker(latlng, { 
-                    icon: customIcon,
-                    draggable: true 
-                });
-            },
-            onEachFeature: function(feature, layer) {
-                if (feature.properties && feature.properties.title) {
-                    layer.bindPopup(feature.properties.title);
-                    if (feature.geometry.type === "Point") {
-                        // Initialize marker coordinates
-                        updatedCoordinates.markers[feature.properties.title] = feature.geometry.coordinates;
-                        updateCoordsPanel();
-                        
-                        // Update marker coordinates when dragged
-                        layer.on('dragend', function(e) {
-                            const newLatLng = e.target.getLatLng();
-                            updatedCoordinates.markers[feature.properties.title] = [newLatLng.lng, newLatLng.lat];
-                            updateCoordsPanel();
-                        });
-                    } else if (feature.geometry.type === "LineString") {
-                        // Add LineString to editable feature group
-                        drawnItems.addLayer(layer);
-                        // Initialize LineString coordinates
-                        updatedCoordinates.linestring = feature.geometry.coordinates;
-                        updateCoordsPanel();
-                        // Update LineString coordinates when edited
-                        layer.on('edit', function(e) {
-                            updatedCoordinates.linestring = e.target.getLatLngs().map(latlng => [latlng.lng, latlng.lat]);
-                            updateCoordsPanel();
-                        });
-                    }
-                }
-            }
-        }).addTo(map);
-
-        // Function to update the coordinates panel
+        
         function updateCoordsPanel() {
             const coordsList = document.getElementById('coords-list');
             coordsList.innerHTML = '';
-            // Add marker coordinates
             for (const [title, coords] of Object.entries(updatedCoordinates.markers)) {
                 const li = document.createElement('li');
-                li.textContent = `${title}: [${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}]`;
+                li.innerHTML = `<strong>${title}</strong> : [${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}] (ลองจิจูด, ละติจูด)`;
                 coordsList.appendChild(li);
             }
-            // Add LineString coordinates
-            const li = document.createElement('li');
-            li.textContent = `พื้นที่เทศบาล (LineString):`;
-            coordsList.appendChild(li);
-            updatedCoordinates.linestring.forEach((coords, index) => {
+            const lineHeader = document.createElement('li');
+            lineHeader.innerHTML = `<strong>✏️ เส้นขอบเขต (LineString)</strong> — ลากจุดปรับแต่ง`;
+            coordsList.appendChild(lineHeader);
+            updatedCoordinates.linestring.forEach((coord, idx) => {
                 const subLi = document.createElement('li');
-                subLi.textContent = `Vertex ${index + 1}: [${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}]`;
+                subLi.textContent = `จุด ${idx+1}: [${coord[0].toFixed(6)}, ${coord[1].toFixed(6)}]`;
                 subLi.style.marginLeft = '20px';
+                subLi.style.fontSize = '11px';
                 coordsList.appendChild(subLi);
             });
         }
-
-        // Export updated GeoJSON
+        
+        const customIcon = L.icon({
+            iconUrl: 'http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png',
+            iconSize: [38, 38],
+            iconAnchor: [19, 38],
+            popupAnchor: [0, -38]
+        });
+        
+        L.geoJSON(geojsonData, {
+            style: function(feature) {
+                if (feature.geometry.type === "LineString") {
+                    return { color: feature.properties.stroke, weight: feature.properties['stroke-width'], dashArray: '5, 5' };
+                }
+            },
+            pointToLayer: function(feature, latlng) {
+                return L.marker(latlng, { icon: customIcon, draggable: true });
+            },
+            onEachFeature: function(feature, layer) {
+                if (feature.geometry.type === "Point") {
+                    const title = feature.properties.title;
+                    updatedCoordinates.markers[title] = feature.geometry.coordinates.slice();
+                    layer.bindPopup(() => getDetailedPopupContent(layer, title));
+                    
+                    layer.on('dragend', function(e) {
+                        const newPos = e.target.getLatLng();
+                        const newCoords = [newPos.lng, newPos.lat];
+                        updatedCoordinates.markers[title] = newCoords;
+                        updateCoordsPanel();
+                        if (layer.getPopup() && layer.getPopup().isOpen()) {
+                            layer.closePopup();
+                            layer.openPopup();
+                        }
+                    });
+                    layer.bindTooltip(title, { sticky: true, offset: [0, -20] });
+                } 
+                else if (feature.geometry.type === "LineString") {
+                    drawnItems.addLayer(layer);
+                    updatedCoordinates.linestring = feature.geometry.coordinates.map(c => [c[0], c[1]]);
+                    updateCoordsPanel();
+                    
+                    layer.on('edit', function(e) {
+                        const latlngs = e.target.getLatLngs();
+                        updatedCoordinates.linestring = latlngs.map(ll => [ll.lng, ll.lat]);
+                        updateCoordsPanel();
+                    });
+                }
+            }
+        }).addTo(map);
+        
+        updateCoordsPanel();
+        
+        map.on('draw:edited', function(e) {
+            e.layers.eachLayer(function(layer) {
+                if (layer.feature && layer.feature.geometry.type === "LineString") {
+                    const latlngs = layer.getLatLngs();
+                    updatedCoordinates.linestring = latlngs.map(ll => [ll.lng, ll.lat]);
+                    updateCoordsPanel();
+                }
+            });
+        });
+        
         document.getElementById('export-btn').addEventListener('click', function() {
             const updatedGeoJSON = JSON.parse(JSON.stringify(geojsonData));
             updatedGeoJSON.features.forEach(feature => {
-                if (feature.geometry.type === "Point" && updatedCoordinates.markers[feature.properties.title]) {
-                    feature.geometry.coordinates = updatedCoordinates.markers[feature.properties.title];
+                if (feature.geometry.type === "Point") {
+                    const title = feature.properties.title;
+                    if (updatedCoordinates.markers[title]) {
+                        feature.geometry.coordinates = updatedCoordinates.markers[title];
+                    }
                 } else if (feature.geometry.type === "LineString") {
                     feature.geometry.coordinates = updatedCoordinates.linestring;
                 }
             });
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(updatedGeoJSON, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "updated_ramrome-hmudethsbaalr-nphibuuly.geojson");
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            document.body.removeChild(downloadAnchor);
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "ron_phibul_utm_dark_pro.geojson";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         });
-
-        // Toggle panel visibility
-        function togglePanel(panelId) {
-            const panel = document.getElementById(panelId);
-            panel.classList.toggle('active');
+        
+        const boundsLayer = L.geoJSON(geojsonData);
+        if (boundsLayer.getBounds().isValid()) {
+            map.fitBounds(boundsLayer.getBounds().pad(0.12));
+        } else {
+            map.setView([8.166, 99.84], 13);
         }
-
-        // Fit the map to the bounds of the GeoJSON features
-        const geojsonLayer = L.geoJSON(geojsonData);
-        map.fitBounds(geojsonLayer.getBounds());
+        
+        window.togglePanel = function(panelId) {
+            const el = document.getElementById(panelId);
+            el.classList.toggle('active');
+        };
+        
+        document.getElementById('coords-content').classList.add('active');
+        document.getElementById('info-content').classList.remove('active');
+        
+        const styleExtra = document.createElement('style');
+        styleExtra.innerHTML = `.leaflet-draw-toolbar a { background-color: #2c7da0; } .leaflet-draw-edit-edit { background-color: #2c7da0; }`;
+        document.head.appendChild(styleExtra);
+        
+        console.log("แผนที่พร้อม: แสดงพิกัดละติจูด/ลองจิจูดในบรรทัดเดียว (lat, lon) ตามที่กำหนด");
     </script>
 </body>
 </html>
